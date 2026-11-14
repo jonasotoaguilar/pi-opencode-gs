@@ -20,6 +20,18 @@ export const REQUEST_TIMEOUT_MS = 10_000;
 /** Opt-in diagnostics: fixed reason codes only, never a key or an error text. */
 export const DEBUG_ENV = "PI_OPENCODE_GO_USAGE_DEBUG";
 
+/**
+ * The subscription tier the panel prints after the provider name. The usage
+ * endpoint is not documented to report it, so it is read when a payload happens
+ * to carry it and otherwise comes from this override — and is left out entirely
+ * when neither says anything, because a guessed tier is worse than no tier.
+ */
+export const PLAN_ENV = "PI_OPENCODE_GO_PLAN";
+
+/** The row name: the panel prints `<limit name> <window label>` per line, lowercased
+ * to match the panel's own lowercase voice. */
+const LIMIT_NAME = "go";
+
 const HOUR = 3600;
 const DAY = 24 * HOUR;
 
@@ -30,7 +42,7 @@ const DAY = 24 * HOUR;
 const WINDOWS = [
 	{ key: "rolling", label: "5h", seconds: 5 * HOUR },
 	{ key: "weekly", label: "week", seconds: 7 * DAY },
-	{ key: "monthly", label: "30d", seconds: 30 * DAY },
+	{ key: "monthly", label: "month", seconds: 30 * DAY },
 ] as const;
 
 /**
@@ -109,6 +121,63 @@ function parseWindow(value: unknown, label: string, windowSeconds: number): Usag
 	return { label, usedPercent: percent, windowSeconds, resetAt };
 }
 
+/**
+ * The spellings a tier could plausibly arrive under. The endpoint is not
+ * documented to report any of them, so this list stays narrow: a name that is not
+ * a plan label (a workspace or account name, say) must never be printed as one.
+ */
+const TIER_KEYS = ["plan", "planName", "tier", "subscriptionName"] as const;
+const NESTED_TIER_KEYS = ["name", "plan", "tier"] as const;
+const TIER_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} ._+-]*$/u;
+const TIER_MAX_LENGTH = 24;
+
+/** Control characters, escapes included, would break the line the shell draws. */
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/;
+
+/** `go plus` reads the way the console writes it, lowercased like every other panel label. */
+function normalizeTier(value: string): string | undefined {
+	if (CONTROL_CHARACTERS.test(value)) return undefined;
+	const text = value.trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ").toLowerCase();
+	if (text.length === 0 || text.length > TIER_MAX_LENGTH) return undefined;
+	if (!TIER_PATTERN.test(text)) return undefined;
+	if (text === "go") return "go";
+	if (text === "go plus") return "go plus";
+	return text;
+}
+
+function tierFromPayload(payload: unknown): string | undefined {
+	if (!isRecord(payload)) return undefined;
+	for (const key of TIER_KEYS) {
+		const candidate = payload[key];
+		if (typeof candidate === "string") {
+			const tier = normalizeTier(candidate);
+			if (tier) return tier;
+		}
+	}
+	// `subscription` is either the tier itself or an object that names it.
+	const subscription = payload.subscription;
+	if (typeof subscription === "string") {
+		const tier = normalizeTier(subscription);
+		if (tier) return tier;
+	} else if (isRecord(subscription)) {
+		for (const key of NESTED_TIER_KEYS) {
+			const candidate = subscription[key];
+			if (typeof candidate === "string") {
+				const tier = normalizeTier(candidate);
+				if (tier) return tier;
+			}
+		}
+	}
+	return undefined;
+}
+
+/** The tier the payload names, the configured override, or nothing at all. */
+export function resolvePlan(payload: unknown, override?: string): string | undefined {
+	const fromPayload = tierFromPayload(payload);
+	if (fromPayload) return fromPayload;
+	return typeof override === "string" ? normalizeTier(override) : undefined;
+}
+
 function readUsage(payload: unknown): Record<string, unknown> | undefined {
 	if (!isRecord(payload) || !isRecord(payload.usage)) return undefined;
 	return payload.usage;
@@ -122,7 +191,7 @@ function readUsage(payload: unknown): Record<string, unknown> | undefined {
  * subscription look less used than it is, and the shell already keeps the last
  * valid snapshot through a failed read.
  */
-export function parseOpenCodeGoUsage(payload: unknown, now: number): ProviderUsage | undefined {
+export function parseOpenCodeGoUsage(payload: unknown, now: number, planOverride?: string): ProviderUsage | undefined {
 	if (!Number.isFinite(now)) return undefined;
 	const usage = readUsage(payload);
 	if (!usage) return undefined;
@@ -137,8 +206,8 @@ export function parseOpenCodeGoUsage(payload: unknown, now: number): ProviderUsa
 		WINDOWS.some(({ key }) => (usage[key] as { status?: unknown }).status === "rate-limited");
 	return {
 		provider: PROVIDER,
-		plan: "OpenCode Go",
-		limits: [{ name: "OpenCode Go", windows, limitReached, scope: "provider" }],
+		plan: resolvePlan(payload, planOverride),
+		limits: [{ name: LIMIT_NAME, windows, limitReached, scope: "provider" }],
 		fetchedAt: now,
 	};
 }

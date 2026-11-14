@@ -66,11 +66,11 @@ test("countdowns are compact and never round down to zero", () => {
 	assert.equal(formatCountdown(2 * 86_400_000 + 3 * 3_600_000), "2d 3h");
 });
 
-test("the state label names both schedules and their countdown", () => {
+test("the state label names the schedule and the time left in it", () => {
 	const peak = peakStateAt(utc("2026-09-23T03:40:00Z"));
-	assert.equal(formatPeakState(peak, utc("2026-09-23T03:40:00Z")), "peak · ends in 20m");
+	assert.equal(formatPeakState(peak, utc("2026-09-23T03:40:00Z")), "peak · change in 20m");
 	const off = peakStateAt(utc("2026-09-23T04:30:00Z"));
-	assert.equal(formatPeakState(off, utc("2026-09-23T04:30:00Z")), "off-peak · starts in 1h 30m");
+	assert.equal(formatPeakState(off, utc("2026-09-23T04:30:00Z")), "off-peak · change in 1h 30m");
 });
 
 test("only the two peak-priced DeepSeek models on opencode-go are peak-priced", () => {

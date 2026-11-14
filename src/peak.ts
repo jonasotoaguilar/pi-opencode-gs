@@ -124,8 +124,7 @@ export function formatCountdown(milliseconds: number): string {
 	return restHours === 0 ? `${days}d` : `${days}d ${restHours}h`;
 }
 
-/** `peak · ends in 20m` or `off-peak · starts in 3h`, without any colour. */
+/** `peak · change in 20m` or `off-peak · change in 3h`, without any colour. */
 export function formatPeakState(state: PeakState, now: number): string {
-	const remainder = formatCountdown(state.until - now);
-	return state.kind === "peak" ? `peak · ends in ${remainder}` : `off-peak · starts in ${remainder}`;
+	return `${state.kind} · change in ${formatCountdown(state.until - now)}`;
 }

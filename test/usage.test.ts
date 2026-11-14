@@ -22,21 +22,45 @@ function response(data: unknown = payload(), options: Record<string, unknown> = 
 test("maps the three Go windows into one provider-scoped snapshot", () => {
 	assert.deepEqual(parseOpenCodeGoUsage(payload(), NOW), {
 		provider: PROVIDER,
-		plan: "OpenCode Go",
+		plan: undefined,
 		fetchedAt: NOW,
 		limits: [
 			{
-				name: "OpenCode Go",
+				name: "go",
 				scope: "provider",
 				limitReached: false,
 				windows: [
 					{ label: "5h", usedPercent: 20, windowSeconds: 18_000, resetAt: Date.parse("2026-09-23T17:00:00.000Z") },
 					{ label: "week", usedPercent: 42.5, windowSeconds: 604_800, resetAt: Date.parse("2026-09-30T12:00:00Z") },
-					{ label: "30d", usedPercent: 55, windowSeconds: 2_592_000, resetAt: Date.parse("2026-10-23T12:00:00Z") },
+					{ label: "month", usedPercent: 55, windowSeconds: 2_592_000, resetAt: Date.parse("2026-10-23T12:00:00Z") },
 				],
 			},
 		],
 	});
+});
+
+test("the subscription tier is read from the payload when it names one, never guessed", () => {
+	for (const [field, value, expected] of [
+		["plan", "Go Plus", "go plus"],
+		["plan", "go_plus", "go plus"],
+		["tier", "GO", "go"],
+		["tier", "GoTeams", "goteams"],
+		["subscription", { name: "Go Plus" }, "go plus"],
+	] as const) {
+		const data = { ...payload(), [field]: value } as unknown;
+		assert.equal(parseOpenCodeGoUsage(data, NOW)?.plan, expected, `${field}: ${JSON.stringify(value)}`);
+	}
+
+	// Nothing usable in the payload, and nothing configured: no tier is claimed.
+	assert.equal(parseOpenCodeGoUsage(payload(), NOW)?.plan, undefined);
+	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: "   " }, NOW)?.plan, undefined);
+	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: 42 }, NOW)?.plan, undefined);
+	// A tier is printed on one terminal line, so only a short, plain label passes.
+	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: "Go\nPlus" }, NOW)?.plan, undefined);
+	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: "x".repeat(40) }, NOW)?.plan, undefined);
+	// The configured override stands in only when the payload says nothing.
+	assert.equal(parseOpenCodeGoUsage(payload(), NOW, "Go Plus")?.plan, "go plus");
+	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: "Go" }, NOW, "Go Plus")?.plan, "go");
 });
 
 test("a full window or a rate-limited status marks the limit reached", () => {
