@@ -35,29 +35,30 @@ send one message with an `opencode-go/*` model and open `alt+u`.
 
 ## What you see
 
-The panel, one row per window, with the tier and the schedule on the provider line:
+The panel, one row per window, with the schedule on the provider line:
 
 ```text
 ✿ Subscriptions
-  opencode-go · go plus · peak · change in 20m · updated just now
+  opencode-go · peak 20m · updated just now
     go 5h     ▰▱▱▱▱▱▱▱ 12% · resets in 1h 42m
     go week   ▰▰▰▱▱▱▱▱ 37% · resets in 1d 20h
     go month  ▰▰▰▰▰▰▰▰ 96% · resets in 4d 0h
 ```
 
-Labels are lowercase, the way the panel writes everything else. `peak` is red and `off-peak` inherits the
-panel's own grey; both carry the time left in that schedule. The percentages are what the endpoint answered at
-the last refresh, never an average or an estimate, and `r` refreshes them.
+Labels are lowercase, the way the panel writes everything else. The header text is plain — `peak 20m` while
+peak, `off-peak 1hr 30m` otherwise — so red stays reserved for a window that is nearly spent. The percentages are
+what the endpoint answered at the last refresh, never an average or an estimate, and `r` refreshes them.
 
-In the status bar, the usage segment follows the active model as usual, and a schedule chip joins it while the
-session's main model is one of the two peak-priced DeepSeek ids:
+While a peak window runs, one line sits under the editor:
 
 ```text
-deepseek-v4-flash · high │ ctx ▰▰▱▱▱▱▱▱ 24% │ $0.390 │ usage 5h ▰▱ 12% · week ▰▰▰ 37% · month ▰▰▰▰ 96% · peak · alt+u
+peak · 2× deepseek · until 04:00
 ```
 
-The chip is `peak` or `off-peak`, lowercase, and it flips on its own at the boundary: the package arms one timer
-to the exact transition and never polls.
+`peak` is amber, the rest is dim, and `until` is the clock time the window ends in the machine's own timezone —
+`until Mon 01:00` when that instant falls on another local date. The line appears and disappears on its own at the
+boundary: the package arms one timer to the exact transition and never polls. Nothing is drawn in off-peak, and
+nothing is drawn until a refresh proves the `opencode-go` provider is logged in — the session model is irrelevant.
 
 ## The peak schedule
 
@@ -76,12 +77,7 @@ no holiday calendar is assumed, so a national holiday is billed as a normal week
 
 | Variable | Effect |
 | --- | --- |
-| `PI_OPENCODE_GO_PLAN` | The tier printed after the provider name (`go`, `go plus`, …) when the endpoint does not report one |
 | `PI_OPENCODE_GO_USAGE_DEBUG` | Set to any value to log why a refresh produced no snapshot, by fixed code only |
-
-The tier is read from the payload when it names one (`plan`, `planName`, `tier`, `subscriptionName`, or
-`subscription.name`); the override stands in only when it does not. When neither says anything, no tier is
-printed — a guessed plan is worse than none.
 
 ## How it works
 
@@ -121,18 +117,20 @@ This package handles a credential, so its behaviour is deliberately narrow:
   the sidebar, a log or a session file. Diagnostics report fixed codes only.
 - **No runtime dependencies, no install scripts.** Installing the package executes nothing.
 - **Defensive parsing.** The payload is foreign JSON: every field is checked, validated and rebuilt, never
-  merged into an existing object. Tiers and labels are rejected if they carry control characters.
+  merged into an existing object. Labels are rejected if they carry control characters.
 
 ## Known limits
 
-- **The bar chip cannot be coloured or moved.** Gentle Shell owns the bar palette: every extension status runs
-  through `sanitizeStatus` (ANSI stripped) and is painted with the muted role, after the cost and usage
-  segments. The chip therefore reads `peak`/`off-peak` at the end of the line instead of sitting between the
-  effort and profile chips. Both are extension-facing hooks the shell does not expose yet.
+- **The subscription tier is not shown, because it cannot be read.** The usage route publishes percentages only,
+  and `go`, `go plus` and `go teams` live behind the console's session cookie. No tier is displayed rather than a
+  guessed one.
+- **The peak line is not in the status bar.** That line belongs to the shell's own chrome, which exposes no slot
+  for a third party; the line therefore lives in the widget row under the editor, and Integrations is left alone.
 - **The schedule rides the provider line, not a note under the rows.** The panel's per-provider note slot is
-  reserved for NaN's quota disclaimer, so the peak label goes into `plan`, between the tier and `updated …`.
-- **The panel countdown is as fresh as the last refresh**, exactly like the quota percentages. The bar chip is
-  not: it flips at the boundary from its own timer.
+  reserved for NaN's quota disclaimer and the fetch-failed note, so the schedule goes into `plan`, between the
+  provider name and `updated …`.
+- **The panel schedule is as fresh as the last refresh**, exactly like the quota percentages. The widget line is
+  not: it appears and disappears from its own timer at the boundary.
 - **The endpoint is outside OpenCode's published OpenAPI**, so its shape may change; an unknown shape is
   rejected rather than displayed.
 - **It reflects the subscription, not this session.** Usage you spend in the OpenCode CLI counts too.

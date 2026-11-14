@@ -1,54 +1,52 @@
 /**
  * The strings Gentle Shell paints for the OpenCode Go peak schedule.
  *
- * Two different surfaces, two different freedoms:
+ * Two surfaces, two different freedoms:
  *
  * - The usage panel prints `ProviderUsage.plan` inside its own muted role and
- *   never sanitizes it, so a red peak label survives there and stays grey when
- *   the schedule is off-peak, which is exactly the asked-for pair.
- * - The status bar owns its palette: every extension status goes through
- *   `sanitizeStatus`, which strips ANSI, and is repainted with the muted role.
- *   A status can therefore say which schedule is running, never colour it.
+ *   never sanitizes it, so the header is plain text: the schedule rides there
+ *   unconditionally, and red stays reserved for near-limit quota inside the
+ *   panel. The panel already prints ` · ` before that field, so the field itself
+ *   carries no leading separator.
+ * - The widget line is this extension's own row above the editor, so it paints
+ *   itself: `peak` is amber while DeepSeek is peak-priced, and every escape is
+ *   closed with `\x1b[0m` so nothing leaks into neighbouring rows. Off-peak has
+ *   no widget line at all.
+ *
+ * The panel's window labels stay untouched: the rows read `go 5h`, `go week`,
+ * `go month`, with the schedule only on the provider line.
  *
  * Nothing here reads a clock; every function takes the instant it must describe.
  */
 
-import { formatPeakState, type PeakState } from "./peak.ts";
+import { formatBoundaryClock, formatPeakState, type PeakState } from "./peak.ts";
 
-/** The key this extension owns in pi's status map. */
-export const PEAK_STATUS_KEY = "opencode-go-peak";
+/** The key this extension owns in pi's widget map. */
+export const PEAK_WIDGET_KEY = "opencode-go-peak-widget";
 
-/**
- * Standard SGR red forward/back pair. The bar's own near-full red is a theme
- * role no extension can reach, so the panel uses the terminal's red and restores
- * the foreground instead of resetting every attribute, which would drop the
- * muted role the shell wrapped around the label.
- */
-const RED = "\x1b[31m";
-const FOREGROUND_DEFAULT = "\x1b[39m";
-
-/** The short chip the status bar shows: `peak` or `off-peak`. */
-export function barStatusText(state: PeakState): string {
-	return state.kind === "peak" ? "peak" : "off-peak";
-}
+const AMBER = "\x1b[33m";
+const DIM = "\x1b[2m";
+const RESET = "\x1b[0m";
 
 /**
- * The panel label: the schedule plus the time left in it, red while peak.
+ * The schedule the panel prints on its provider line, between the provider name
+ * and the `updated …` note: `off-peak 3hr 20m`.
  *
- * Off-peak is left uncoloured on purpose: the surrounding plan role already
- * paints it in the same generic grey the profile chip uses.
+ * The panel inserts its own ` · ` before this field, so the field never starts
+ * with one: a leading separator here would render as a doubled ` ·  · `.
  */
-export function panelPeakLabel(state: PeakState, now: number): string {
-	const label = formatPeakState(state, now);
-	return state.kind === "peak" ? `${RED}${label}${FOREGROUND_DEFAULT}` : label;
+export function panelSchedule(state: PeakState, now: number): string {
+	return formatPeakState(state, now);
 }
 
 /**
- * Composes the panel's plan field: the subscription tier when one is known, then
- * the schedule, so the label lands between the provider name and the `updated …`
- * note. A provider with no known tier still gets the schedule.
+ * The single widget line, shown only while DeepSeek is peak-priced:
+ * `peak · 2× deepseek · until 04:00`. There is no off-peak variant; the caller
+ * clears the widget instead. The boundary is rendered in the machine's own
+ * timezone: `timeZone` is not passed here, only by unit tests that call
+ * `formatBoundaryClock` directly.
  */
-export function composePlan(plan: string | undefined, state: PeakState, now: number): string {
-	const label = panelPeakLabel(state, now);
-	return plan && plan.length > 0 ? `${plan} · ${label}` : label;
+export function peakWidgetLine(state: PeakState, now: number): string {
+	const clock = formatBoundaryClock(state.until, now);
+	return `${AMBER}peak${DIM} · 2× deepseek · until ${clock}${RESET}`;
 }
