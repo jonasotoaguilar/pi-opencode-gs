@@ -1,5 +1,5 @@
 {
-  "name": "pi-opencode-go",
+  "name": "pi-opencode-gs",
   "version": "0.1.0",
   "description": "OpenCode Go subscription usage for Gentle Shell, with DeepSeek peak/off-peak pricing awareness",
   "type": "module",

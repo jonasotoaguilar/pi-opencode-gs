@@ -1,4 +1,4 @@
-# pi-opencode-go
+# pi-opencode-gs
 
 OpenCode Go subscription usage in [Gentle Shell](https://github.com/Gentleman-Programming/gentle-shell): the
 `/gentle:usage` panel behind `alt+u`, the usage segment in the status bar, and the DeepSeek peak/off-peak
@@ -18,16 +18,16 @@ the refresh schedule.
 
 ```sh
 # Standalone Gentle Shell (the usual case)
-gentle-shell install npm:pi-opencode-go
+gentle-shell install npm:pi-opencode-gs
 
 # Gentle Shell linked to an existing pi home
-gentle-shell --link install npm:pi-opencode-go
+gentle-shell --link install npm:pi-opencode-gs
 
 # Plain Pi
-pi install npm:pi-opencode-go
+pi install npm:pi-opencode-gs
 
 # From a checkout
-gentle-shell install ./pi-opencode-go
+gentle-shell install ./pi-opencode-gs
 ```
 
 Plain Pi has no listener for the event, so the extension is a no-op there. Reload (`/reload`) or restart, then
