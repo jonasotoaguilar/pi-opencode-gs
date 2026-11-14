@@ -213,7 +213,7 @@ export function parseOpenCodeGoUsage(payload: unknown, now: number, planOverride
 }
 
 function defaultReport(reason: FailureReason): void {
-	if (process.env[DEBUG_ENV]) console.error(`[pi-opencode-go] ${reason}`);
+	if (process.env[DEBUG_ENV]) console.error(`[pi-opencode-gs] ${reason}`);
 }
 
 interface RequestResult {
