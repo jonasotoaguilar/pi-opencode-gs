@@ -82,6 +82,12 @@ jobs:
       - name: Install a current npm
         run: npm install -g npm@12
 
+      # npm publish runs prepublishOnly -> npm run verify (tsc + tests), so the
+      # devDependencies must be installed here too. Without this the typecheck
+      # fails with TS2688 (missing @types/node) and nothing is published.
+      - name: Install dependencies
+        run: npm ci
+
       # Idempotent per version: npm cannot republish, so a version the registry
       # already has (by-hand bootstrap or a re-run) is reported and the GitHub
       # Release below is still created.
