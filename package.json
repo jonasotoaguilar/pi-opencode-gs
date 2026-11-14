@@ -1,0 +1,46 @@
+{
+  "name": "pi-opencode-go",
+  "version": "0.1.0",
+  "description": "OpenCode Go subscription usage for Gentle Shell, with DeepSeek peak/off-peak pricing awareness",
+  "type": "module",
+  "license": "MIT",
+  "author": "Jonathan Soto",
+  "keywords": [
+    "pi-package",
+    "gentle-shell",
+    "opencode",
+    "opencode-go",
+    "usage",
+    "quota",
+    "deepseek",
+    "peak"
+  ],
+  "files": [
+    "src/**/*.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "check": "tsc --noEmit",
+    "verify": "npm run check && npm test",
+    "prepublishOnly": "npm run verify"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.5.2",
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3"
+  }
+}
