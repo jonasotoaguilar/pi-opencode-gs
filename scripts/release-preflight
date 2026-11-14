@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Release preflight: the tag names this exact version, and the tree is releasable.
+set -euo pipefail
+
+: "${RELEASE_TAG:?RELEASE_TAG is required}"
+
+cd "$(dirname "$0")/.."
+
+version=$(node -p "require('./package.json').version")
+if [[ "$RELEASE_TAG" != "v${version}" ]]; then
+  echo "::error::tag ${RELEASE_TAG} does not match package.json ${version}"
+  exit 1
+fi
+
+# The Pi entry point and the sources it imports must ship in the tarball.
+test -f src/extension.ts
+test -f package.json
+
+npm ci
+npm run verify
+
+echo "::notice::preflight ok for ${RELEASE_TAG}"

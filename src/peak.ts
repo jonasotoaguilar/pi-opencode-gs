@@ -15,8 +15,6 @@
  * without freezing time.
  */
 
-export const PROVIDER = "opencode-go";
-
 /** The two published peak windows, in UTC hours, half-open (`start <= t < end`). */
 const PEAK_WINDOWS = [
 	{ startHour: 1, endHour: 4 },
@@ -48,9 +46,13 @@ export interface PeakState {
  */
 const DEEPSEEK_PEAK_PRICING = /^deepseek-v4(?:\.1)?[-._]?(?:flash|pro)/i;
 
-/** True when this provider/model pair is billed at the peak-priced rate. */
-export function deepseekPeakPricing(provider: string, modelId: string | undefined): boolean {
-	if (provider !== PROVIDER || typeof modelId !== "string") return false;
+/**
+ * True when this model id belongs to the peak-priced DeepSeek family. The test is
+ * provider-independent on purpose: the schedule follows the model, so the same id
+ * served by any provider earns the same peak reading.
+ */
+export function deepseekPeakPricing(modelId: string | undefined): boolean {
+	if (typeof modelId !== "string") return false;
 	return DEEPSEEK_PEAK_PRICING.test(modelId);
 }
 
@@ -118,13 +120,40 @@ export function formatCountdown(milliseconds: number): string {
 	if (minutes < 60) return `${minutes}m`;
 	const hours = Math.floor(minutes / 60);
 	const restMinutes = minutes % 60;
-	if (hours < 24) return restMinutes === 0 ? `${hours}h` : `${hours}h ${restMinutes}m`;
+	if (hours < 24) return restMinutes === 0 ? `${hours}hr` : `${hours}hr ${restMinutes}m`;
 	const days = Math.floor(hours / 24);
 	const restHours = hours % 24;
-	return restHours === 0 ? `${days}d` : `${days}d ${restHours}h`;
+	return restHours === 0 ? `${days}d` : `${days}d ${restHours}hr`;
 }
 
-/** `peak · change in 20m` or `off-peak · change in 3h`, without any colour. */
+/**
+ * The next transition as a local clock: `04:00` on the same local date, or
+ * `Mon 01:00` when the boundary falls on another one. The instant the schedule
+ * actually ends is printed, never a countdown. `timeZone` is optional so a test
+ * can pin the locale without freezing the machine's clock.
+ */
+export function formatBoundaryClock(until: number, now: number, timeZone?: string): string {
+	if (!Number.isFinite(until) || !Number.isFinite(now)) return "now";
+	const boundary = new Date(until);
+	const clock = new Intl.DateTimeFormat("en-US", {
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+		timeZone,
+	}).format(boundary);
+	const localDate = (instant: Date): string =>
+		new Intl.DateTimeFormat("en-US", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(
+			instant,
+		);
+	if (localDate(boundary) === localDate(new Date(now))) return clock;
+	const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone }).format(boundary);
+	return `${weekday} ${clock}`;
+}
+
+/**
+ * `peak 20m` or `off-peak 3hr 20m`: the state, then the time left in it, with no
+ * word between and no colour.
+ */
 export function formatPeakState(state: PeakState, now: number): string {
-	return `${state.kind} · change in ${formatCountdown(state.until - now)}`;
+	return `${state.kind} ${formatCountdown(state.until - now)}`;
 }

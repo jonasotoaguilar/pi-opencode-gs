@@ -1,10 +1,14 @@
 {
   "name": "pi-opencode-gs",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "OpenCode Go subscription usage for Gentle Shell, with DeepSeek peak/off-peak pricing awareness",
   "type": "module",
   "license": "MIT",
   "author": "Jonathan Soto",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jonasotoaguilar/pi-opencode-gs.git"
+  },
   "keywords": [
     "pi-package",
     "gentle-shell",
@@ -18,8 +22,7 @@
   "files": [
     "src/**/*.ts",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "LICENSE"
   ],
   "pi": {
     "extensions": [

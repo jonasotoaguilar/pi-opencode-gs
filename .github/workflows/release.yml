@@ -1,0 +1,159 @@
+name: Release (npm)
+
+# Tag-only release: git tag -a vX.Y.Z && git push origin vX.Y.Z
+# preflight -> publish (OIDC) -> verify.
+# No npm credential exists here: an unbound trusted publisher fails loudly.
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "!v*-*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact tag
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Setup Node
+        # actions/setup-node v6.0.0
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+
+      - name: Run release preflight
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! -x ./scripts/release-preflight ]]; then
+            echo "::error::Missing scripts/release-preflight"
+            exit 1
+          fi
+          ./scripts/release-preflight
+
+  release:
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # The npm trusted publisher binds to this workflow name and environment.
+    environment: release
+    permissions:
+      contents: write
+      # Trusted publishing: this job's OIDC assertion is exchanged for a
+      # short-lived registry token. Granted here and nowhere else.
+      id-token: write
+    env:
+      GITHUB_TOKEN: ""
+    steps:
+      - name: Checkout exact tag
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Setup Node
+        # actions/setup-node v6.0.0
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm >= 11.5.1; Node 22 bundles npm 10.
+      - name: Install a current npm
+        run: npm install -g npm@12
+
+      # Idempotent per version: npm cannot republish, so a version the registry
+      # already has (by-hand bootstrap or a re-run) is reported and the GitHub
+      # Release below is still created.
+      - name: Publish to npm
+        run: |
+          set -euo pipefail
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "::notice::npm already has ${name}@${version}: skipped"
+          else
+            npm publish --access public --provenance
+          fi
+
+      - name: Run release publisher
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! -x ./scripts/release-publish ]]; then
+            echo "::error::Missing scripts/release-publish"
+            exit 1
+          fi
+          ./scripts/release-publish
+
+  verify:
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact tag
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Setup Node
+        # actions/setup-node v6.0.0
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+
+      # Confirms the published version, from outside the publish job.
+      - name: Verify the npm entry
+        run: |
+          set -euo pipefail
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          published=$(npm view "${name}@${version}" version)
+          if [[ "$published" != "$version" ]]; then
+            echo "::error::registry has ${published}, expected ${version}"
+            exit 1
+          fi
+          echo "::notice::npm has ${name}@${version}"
+
+      - name: Verify published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! -x ./scripts/release-verify ]]; then
+            echo "::error::Missing scripts/release-verify"
+            exit 1
+          fi
+          ./scripts/release-verify

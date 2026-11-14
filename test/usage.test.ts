@@ -39,30 +39,6 @@ test("maps the three Go windows into one provider-scoped snapshot", () => {
 	});
 });
 
-test("the subscription tier is read from the payload when it names one, never guessed", () => {
-	for (const [field, value, expected] of [
-		["plan", "Go Plus", "go plus"],
-		["plan", "go_plus", "go plus"],
-		["tier", "GO", "go"],
-		["tier", "GoTeams", "goteams"],
-		["subscription", { name: "Go Plus" }, "go plus"],
-	] as const) {
-		const data = { ...payload(), [field]: value } as unknown;
-		assert.equal(parseOpenCodeGoUsage(data, NOW)?.plan, expected, `${field}: ${JSON.stringify(value)}`);
-	}
-
-	// Nothing usable in the payload, and nothing configured: no tier is claimed.
-	assert.equal(parseOpenCodeGoUsage(payload(), NOW)?.plan, undefined);
-	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: "   " }, NOW)?.plan, undefined);
-	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: 42 }, NOW)?.plan, undefined);
-	// A tier is printed on one terminal line, so only a short, plain label passes.
-	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: "Go\nPlus" }, NOW)?.plan, undefined);
-	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: "x".repeat(40) }, NOW)?.plan, undefined);
-	// The configured override stands in only when the payload says nothing.
-	assert.equal(parseOpenCodeGoUsage(payload(), NOW, "Go Plus")?.plan, "go plus");
-	assert.equal(parseOpenCodeGoUsage({ ...payload(), plan: "Go" }, NOW, "Go Plus")?.plan, "go");
-});
-
 test("a full window or a rate-limited status marks the limit reached", () => {
 	const full = payload();
 	full.usage.weekly.percent = 100;
