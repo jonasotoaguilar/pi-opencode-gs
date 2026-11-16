@@ -191,7 +191,7 @@ test("a failed refresh yields no snapshot, so the shell keeps its last one", asy
 // and the shape around it are asserted literally. `formatBoundaryClock`'s own
 // clock formatting is pinned to UTC in peak.test.ts.
 const expectedPeakWidget = (now: number): string =>
-	`\x1b[33mpeak\x1b[2m · 2× deepseek · until ${formatBoundaryClock(peakStateAt(now).until, now)}\x1b[0m`;
+	`\x1b[33mpeak\x1b[0m · 2× deepseek · until ${formatBoundaryClock(peakStateAt(now).until, now)}`;
 
 const latestWidget = (widgets: WidgetCall[]): WidgetCall | undefined => widgets.at(-1);
 

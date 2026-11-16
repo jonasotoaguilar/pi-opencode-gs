@@ -1,6 +1,6 @@
 {
   "name": "pi-opencode-gs",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "OpenCode Go subscription usage for Gentle Shell, with DeepSeek peak/off-peak pricing awareness",
   "type": "module",
   "license": "MIT",
