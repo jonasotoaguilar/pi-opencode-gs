@@ -55,7 +55,7 @@ While a peak window runs, one line sits under the editor:
 peak · 2× deepseek · until 04:00
 ```
 
-`peak` is amber, the rest is dim, and `until` is the clock time the window ends in the machine's own timezone —
+`peak` is amber, the rest is normal foreground text, and `until` is the clock time the window ends in the machine's own timezone —
 `until Mon 01:00` when that instant falls on another local date. The line appears and disappears on its own at the
 boundary: the package arms one timer to the exact transition and never polls. Nothing is drawn in off-peak, and
 nothing is drawn until a refresh proves the `opencode-go` provider is logged in — the session model is irrelevant.
